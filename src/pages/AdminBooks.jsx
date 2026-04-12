@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useRef } from 'react';
 import { getBooks, saveBooks } from '../utils/storage';
 import './AdminBooks.css';
 
@@ -7,13 +6,18 @@ const EMPTY_FORM = {
   title: '', author: '', isbn: '', genre: 'Fiction', category: '', year: '', copies: 1, description: '',
 };
 
+const MAX_PDF_BYTES = 5 * 1024 * 1024; // 5 MB
+
 export default function AdminBooks() {
   const [books, setBooks] = useState(() => getBooks());
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [pdfFile, setPdfFile] = useState(null);
+  const [pdfError, setPdfError] = useState('');
   const [message, setMessage] = useState(null);
+  const fileInputRef = useRef(null);
 
   function load() { setBooks(getBooks()); }
 
@@ -25,6 +29,8 @@ export default function AdminBooks() {
   function openAdd() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setPdfFile(null);
+    setPdfError('');
     setShowForm(true);
   }
 
@@ -40,6 +46,8 @@ export default function AdminBooks() {
       copies: book.copies,
       description: book.description,
     });
+    setPdfFile(null);
+    setPdfError('');
     setShowForm(true);
   }
 
@@ -47,8 +55,26 @@ export default function AdminBooks() {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function handleSubmit(e) {
-    e.preventDefault();
+  function handlePdfChange(e) {
+    const file = e.target.files[0];
+    setPdfError('');
+    if (!file) { setPdfFile(null); return; }
+    if (file.type !== 'application/pdf') {
+      setPdfError('Only PDF files are allowed.');
+      setPdfFile(null);
+      e.target.value = '';
+      return;
+    }
+    if (file.size > MAX_PDF_BYTES) {
+      setPdfError('File is too large (max 5 MB).');
+      setPdfFile(null);
+      e.target.value = '';
+      return;
+    }
+    setPdfFile(file);
+  }
+
+  function persistBook(pdfDataUrl) {
     const all = getBooks();
     if (editing) {
       const updated = all.map((b) => {
@@ -60,6 +86,8 @@ export default function AdminBooks() {
           copies: Number(form.copies),
           year: Number(form.year),
           available: Math.max(0, b.available + diff),
+          // Keep existing PDF if no new file was selected
+          pdfDataUrl: pdfDataUrl !== undefined ? pdfDataUrl : b.pdfDataUrl,
         };
       });
       saveBooks(updated);
@@ -73,6 +101,7 @@ export default function AdminBooks() {
         copies: Number(form.copies),
         year: Number(form.year),
         available: Number(form.copies),
+        pdfDataUrl: pdfDataUrl || null,
         addedAt: new Date().toISOString(),
       };
       saveBooks([...all, newBook]);
@@ -80,6 +109,18 @@ export default function AdminBooks() {
     }
     setShowForm(false);
     load();
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (pdfFile) {
+      const reader = new FileReader();
+      reader.onload = () => persistBook(reader.result);
+      reader.readAsDataURL(pdfFile);
+    } else {
+      // undefined → keep existing PDF (edit); null handled in persistBook for new
+      persistBook(undefined);
+    }
   }
 
   function handleDelete(book) {
@@ -98,6 +139,9 @@ export default function AdminBooks() {
       b.isbn.toLowerCase().includes(q)
     );
   });
+
+  // Find current book PDF state for the edit form hint
+  const editingBook = editing ? books.find((b) => b.id === editing) : null;
 
   return (
     <div className="page-container">
@@ -162,6 +206,20 @@ export default function AdminBooks() {
                 <label>Description</label>
                 <textarea name="description" value={form.description} onChange={handleChange} rows={3} />
               </div>
+              <div className="form-group">
+                <label>PDF File (optional, max 5 MB)</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handlePdfChange}
+                  className="pdf-input"
+                />
+                {pdfError && <span className="pdf-error">{pdfError}</span>}
+                {editing && editingBook?.pdfDataUrl && !pdfFile && (
+                  <span className="pdf-hint">✅ A PDF is already attached. Upload a new file to replace it.</span>
+                )}
+              </div>
               <div className="form-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
                 <button type="submit" className="btn-primary">{editing ? 'Update Book' : 'Add Book'}</button>
@@ -195,12 +253,13 @@ export default function AdminBooks() {
               <th>Year</th>
               <th>Copies</th>
               <th>Available</th>
+              <th>PDF</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan="9" className="no-data">No books found.</td></tr>
+              <tr><td colSpan="10" className="no-data">No books found.</td></tr>
             ) : filtered.map((book, i) => (
               <tr key={book.id}>
                 <td>{i + 1}</td>
@@ -214,6 +273,13 @@ export default function AdminBooks() {
                   <span className={`badge ${book.available > 0 ? 'badge-available' : 'badge-unavailable'}`}>
                     {book.available}
                   </span>
+                </td>
+                <td>
+                  {book.pdfDataUrl ? (
+                    <span className="badge badge-pdf">✅ PDF</span>
+                  ) : (
+                    <span className="badge badge-no-pdf">—</span>
+                  )}
                 </td>
                 <td className="actions-cell">
                   <button className="btn-edit" onClick={() => openEdit(book)}>Edit</button>

@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
     saveUsers([...users, newUser]);
-    setUser(newUser);
+    // Do not auto-login; redirect the user to the login page instead
     return { success: true, user: newUser };
   }
 

@@ -16,6 +16,7 @@ export default function BooksPage() {
   const [filterGenre, setFilterGenre] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [message, setMessage] = useState(null);
+  const [pdfViewer, setPdfViewer] = useState(null); // { url, title }
 
   function showMsg(text, type = 'success') {
     setMessage({ text, type });
@@ -90,6 +91,25 @@ export default function BooksPage() {
         <div className={`alert alert-${message.type}`}>{message.text}</div>
       )}
 
+      {/* PDF viewer modal */}
+      {pdfViewer && (
+        <div className="modal-overlay" onClick={() => setPdfViewer(null)}>
+          <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="pdf-modal-header">
+              <h2>📄 {pdfViewer.title}</h2>
+              <button className="pdf-modal-close" onClick={() => setPdfViewer(null)}>✕ Close</button>
+            </div>
+            <embed
+              src={pdfViewer.url}
+              type="application/pdf"
+              className="pdf-embed"
+              title={pdfViewer.title}
+              aria-label={`PDF document: ${pdfViewer.title}`}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="search-bar-row">
         <input
           className="search-input"
@@ -156,6 +176,15 @@ export default function BooksPage() {
                   <span className={`badge ${book.available > 0 ? 'badge-available' : 'badge-unavailable'}`}>
                     {book.available}/{book.copies} available
                   </span>
+                  {book.pdfDataUrl && (
+                    <button
+                      className="btn-read-pdf"
+                      aria-label={`Read PDF for ${book.title}`}
+                      onClick={() => setPdfViewer({ url: book.pdfDataUrl, title: book.title })}
+                    >
+                      📄 Read PDF
+                    </button>
+                  )}
                   {borrowed ? (
                     <span className="badge badge-borrowed">Borrowed</span>
                   ) : (
@@ -176,3 +205,4 @@ export default function BooksPage() {
     </div>
   );
 }
+
