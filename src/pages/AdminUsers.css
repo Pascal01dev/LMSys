@@ -1,0 +1,50 @@
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.user-initial {
+  width: 30px;
+  height: 30px;
+  background: #e8eaf6;
+  color: #1a237e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* Re-use shared styles via shared class names from AdminBooks.css */
+/* The following are duplicated to keep this file standalone */
+.page-container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+.page-header { margin-bottom: 2rem; }
+.page-header h1 { font-size: 2rem; color: #1a237e; margin: 0 0 0.4rem; }
+.page-header p { color: #555; margin: 0; }
+
+.search-bar-row { display: flex; gap: 0.75rem; margin-bottom: 1rem; }
+.search-input { flex: 1; padding: 0.65rem 1rem; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; }
+.search-input:focus { outline: none; border-color: #1a237e; }
+
+.results-count { font-size: 0.9rem; color: #888; margin-bottom: 1rem; }
+
+.table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+.data-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 0.88rem; }
+.data-table th { background: #f0f4ff; padding: 0.75rem 1rem; text-align: left; font-weight: 700; color: #1a237e; border-bottom: 2px solid #c7d2fe; }
+.data-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f3f4f6; color: #333; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover td { background: #f9fafb; }
+
+.tag { background: #e8eaf6; color: #1a237e; padding: 0.15rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+
+.btn-delete { background: #fef2f2; color: #b91c1c; border: none; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.btn-delete:hover { background: #fca5a5; }
+
+.no-data { text-align: center; color: #888; padding: 2rem; font-style: italic; }
+
+.alert { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.9rem; margin-bottom: 1.2rem; }
+.alert-success { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
+.alert-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
