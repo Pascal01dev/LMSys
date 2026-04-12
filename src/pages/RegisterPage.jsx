@@ -29,7 +29,7 @@ export default function RegisterPage() {
     const result = await register(form.name, form.email, form.password);
     setLoading(false);
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/login');
     } else {
       setError(result.message);
     }
