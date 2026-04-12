@@ -40,7 +40,8 @@ export default function Sidebar({ children }) {
       <button
         className="hamburger"
         onClick={() => setOpen((prev) => !prev)}
-        aria-label="Toggle navigation"
+        aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-expanded={open}
       >
         {open ? '✕' : '☰'}
       </button>

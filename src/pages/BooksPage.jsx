@@ -104,6 +104,7 @@ export default function BooksPage() {
               type="application/pdf"
               className="pdf-embed"
               title={pdfViewer.title}
+              aria-label={`PDF document: ${pdfViewer.title}`}
             />
           </div>
         </div>
@@ -178,6 +179,7 @@ export default function BooksPage() {
                   {book.pdfDataUrl && (
                     <button
                       className="btn-read-pdf"
+                      aria-label={`Read PDF for ${book.title}`}
                       onClick={() => setPdfViewer({ url: book.pdfDataUrl, title: book.title })}
                     >
                       📄 Read PDF
