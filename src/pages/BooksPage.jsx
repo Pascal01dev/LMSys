@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   getBooks,
@@ -150,11 +150,13 @@ export default function BooksPage() {
     showMsg('Review submitted!');
   }
 
-  // Dismiss hold_fulfilled notifications from the notification store when page loads
-  const notifications = getNotifications().filter(
-    (n) => n.userId === user.id && !n.read && n.type === 'hold_fulfilled'
-  );
-  if (notifications.length > 0) markNotificationsRead(user.id);
+  // Dismiss hold_fulfilled notifications on mount only
+  useEffect(() => {
+    const unread = getNotifications().filter(
+      (n) => n.userId === user.id && !n.read && n.type === 'hold_fulfilled'
+    );
+    if (unread.length > 0) markNotificationsRead(user.id);
+  }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const genres = [...new Set(books.map((b) => b.genre))];
   const categories = [...new Set(books.map((b) => b.category))];

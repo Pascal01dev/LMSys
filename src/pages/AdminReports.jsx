@@ -219,7 +219,7 @@ export default function AdminReports() {
                 <th>Total Copies</th>
                 <th>Issued</th>
                 <th>Available</th>
-                <th>Utilisation</th>
+                <th>Utilization</th>
               </tr>
             </thead>
             <tbody>
