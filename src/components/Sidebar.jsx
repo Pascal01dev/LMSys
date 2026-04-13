@@ -5,9 +5,10 @@ import './Sidebar.css';
 
 const ADMIN_LINKS = [
   { to: '/admin', icon: '🏠', label: 'Dashboard', exact: true },
-  { to: '/admin/books', icon: '📚', label: 'Books' },
+  { to: '/admin/books', icon: '📚', label: 'Resources' },
   { to: '/admin/users', icon: '👥', label: 'Users' },
   { to: '/admin/borrows', icon: '📋', label: 'Borrows' },
+  { to: '/admin/reports', icon: '📊', label: 'Reports' },
 ];
 
 const STUDENT_LINKS = [

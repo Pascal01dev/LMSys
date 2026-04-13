@@ -147,6 +147,12 @@
   text-decoration: underline;
 }
 
+.alert-info {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+
 .demo-hint {
   margin-top: 1rem;
   padding: 0.6rem 0.9rem;

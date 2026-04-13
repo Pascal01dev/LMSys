@@ -5,6 +5,8 @@ const KEYS = {
   BOOKS: 'lms_books',
   BORROWS: 'lms_borrows',
   CURRENT_USER: 'lms_current_user',
+  HOLDS: 'lms_holds',
+  NOTIFICATIONS: 'lms_notifications',
 };
 
 // Hash a password using SHA-256 (Web Crypto API)
@@ -26,6 +28,7 @@ export async function initStorage() {
         email: 'admin@lms.com',
         passwordHash: adminHash,
         role: 'admin',
+        status: 'active',
         createdAt: new Date().toISOString(),
       },
     ];
@@ -41,9 +44,11 @@ export async function initStorage() {
         isbn: '978-0743273565',
         genre: 'Fiction',
         category: 'Classic',
+        type: 'Book',
         year: 1925,
         copies: 3,
         available: 3,
+        reviews: [],
         description:
           'A story of the fabulously wealthy Jay Gatsby and his love for Daisy Buchanan.',
         addedAt: new Date().toISOString(),
@@ -55,9 +60,11 @@ export async function initStorage() {
         isbn: '978-0061935466',
         genre: 'Fiction',
         category: 'Classic',
+        type: 'Book',
         year: 1960,
         copies: 5,
         available: 5,
+        reviews: [],
         description:
           'The story of racial injustice and the loss of innocence in the American South.',
         addedAt: new Date().toISOString(),
@@ -69,9 +76,11 @@ export async function initStorage() {
         isbn: '978-0553380163',
         genre: 'Non-Fiction',
         category: 'Science',
+        type: 'Book',
         year: 1988,
         copies: 2,
         available: 2,
+        reviews: [],
         description:
           'A landmark volume in science writing about the nature of time and the universe.',
         addedAt: new Date().toISOString(),
@@ -83,9 +92,11 @@ export async function initStorage() {
         isbn: '978-0451524935',
         genre: 'Fiction',
         category: 'Dystopian',
+        type: 'Book',
         year: 1949,
         copies: 4,
         available: 4,
+        reviews: [],
         description:
           'A dystopian social science fiction novel set in a totalitarian society.',
         addedAt: new Date().toISOString(),
@@ -97,11 +108,45 @@ export async function initStorage() {
         isbn: '978-0262033848',
         genre: 'Non-Fiction',
         category: 'Technology',
+        type: 'Book',
         year: 2009,
         copies: 3,
         available: 3,
+        reviews: [],
         description:
           'A comprehensive textbook covering a broad range of algorithms in depth.',
+        addedAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        title: 'IEEE Software Engineering Journal — Vol. 39',
+        author: 'IEEE Editorial Board',
+        isbn: '978-IEEE-SE-039',
+        genre: 'Non-Fiction',
+        category: 'Technology',
+        type: 'Journal',
+        year: 2022,
+        copies: 2,
+        available: 2,
+        reviews: [],
+        description:
+          'Peer-reviewed articles on software engineering practices and emerging technologies.',
+        addedAt: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        title: 'Laboratory Safety Manual',
+        author: 'Health & Safety Dept.',
+        isbn: '978-LSM-2023-01',
+        genre: 'Non-Fiction',
+        category: 'Reference',
+        type: 'Manual',
+        year: 2023,
+        copies: 5,
+        available: 5,
+        reviews: [],
+        description:
+          'Guidelines and procedures for safe laboratory operations and emergency response.',
         addedAt: new Date().toISOString(),
       },
     ];
@@ -110,6 +155,14 @@ export async function initStorage() {
 
   if (!localStorage.getItem(KEYS.BORROWS)) {
     localStorage.setItem(KEYS.BORROWS, JSON.stringify([]));
+  }
+
+  if (!localStorage.getItem(KEYS.HOLDS)) {
+    localStorage.setItem(KEYS.HOLDS, JSON.stringify([]));
+  }
+
+  if (!localStorage.getItem(KEYS.NOTIFICATIONS)) {
+    localStorage.setItem(KEYS.NOTIFICATIONS, JSON.stringify([]));
   }
 }
 
@@ -158,4 +211,42 @@ export function setCurrentUser(user) {
   } else {
     localStorage.removeItem(KEYS.CURRENT_USER);
   }
+}
+
+// Holds
+export function getHolds() {
+  return JSON.parse(localStorage.getItem(KEYS.HOLDS) || '[]');
+}
+
+export function saveHolds(holds) {
+  localStorage.setItem(KEYS.HOLDS, JSON.stringify(holds));
+}
+
+// Notifications
+export function getNotifications() {
+  return JSON.parse(localStorage.getItem(KEYS.NOTIFICATIONS) || '[]');
+}
+
+export function saveNotifications(notifications) {
+  localStorage.setItem(KEYS.NOTIFICATIONS, JSON.stringify(notifications));
+}
+
+export function addNotification({ userId, type, message }) {
+  const all = getNotifications();
+  all.push({
+    id: crypto.randomUUID(),
+    userId,
+    type,
+    message,
+    createdAt: new Date().toISOString(),
+    read: false,
+  });
+  saveNotifications(all);
+}
+
+export function markNotificationsRead(userId) {
+  const all = getNotifications().map((n) =>
+    n.userId === userId ? { ...n, read: true } : n
+  );
+  saveNotifications(all);
 }

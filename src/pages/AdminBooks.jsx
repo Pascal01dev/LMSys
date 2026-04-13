@@ -3,7 +3,7 @@ import { getBooks, saveBooks } from '../utils/storage';
 import './AdminBooks.css';
 
 const EMPTY_FORM = {
-  title: '', author: '', isbn: '', genre: 'Fiction', category: '', year: '', copies: 1, description: '',
+  title: '', author: '', isbn: '', genre: 'Fiction', category: '', type: 'Book', year: '', copies: 1, description: '',
 };
 
 const MAX_PDF_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -42,6 +42,7 @@ export default function AdminBooks() {
       isbn: book.isbn,
       genre: book.genre,
       category: book.category,
+      type: book.type || 'Book',
       year: book.year,
       copies: book.copies,
       description: book.description,
@@ -101,6 +102,7 @@ export default function AdminBooks() {
         copies: Number(form.copies),
         year: Number(form.year),
         available: Number(form.copies),
+        reviews: [],
         pdfDataUrl: pdfDataUrl || null,
         addedAt: new Date().toISOString(),
       };
@@ -147,8 +149,8 @@ export default function AdminBooks() {
     <div className="page-container">
       <div className="page-header-row">
         <div>
-          <h1>Manage Books</h1>
-          <p>Add, edit or remove books from the library.</p>
+          <h1>Manage Library Resources</h1>
+          <p>Add, edit or remove books, journals, manuals and other resources.</p>
         </div>
         <button className="btn-primary" onClick={openAdd}>+ Add Book</button>
       </div>
@@ -194,13 +196,25 @@ export default function AdminBooks() {
                   </select>
                 </div>
                 <div className="form-group">
+                  <label>Resource Type *</label>
+                  <select name="type" value={form.type} onChange={handleChange} required>
+                    <option>Book</option>
+                    <option>Journal</option>
+                    <option>Manual</option>
+                    <option>Magazine</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
                   <label>Category</label>
                   <input name="category" value={form.category} onChange={handleChange} placeholder="e.g. Classic, Science" />
                 </div>
-              </div>
-              <div className="form-group">
-                <label>Number of Copies *</label>
-                <input name="copies" type="number" min="1" value={form.copies} onChange={handleChange} required />
+                <div className="form-group">
+                  <label>Number of Copies *</label>
+                  <input name="copies" type="number" min="1" value={form.copies} onChange={handleChange} required />
+                </div>
               </div>
               <div className="form-group">
                 <label>Description</label>
@@ -233,13 +247,13 @@ export default function AdminBooks() {
         <input
           className="search-input"
           type="search"
-          placeholder="🔍  Search books…"
+          placeholder="🔍  Search resources…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      <p className="results-count">{filtered.length} book{filtered.length !== 1 ? 's' : ''}</p>
+      <p className="results-count">{filtered.length} resource{filtered.length !== 1 ? 's' : ''}</p>
 
       <div className="table-wrapper">
         <table className="data-table">
@@ -249,6 +263,7 @@ export default function AdminBooks() {
               <th>Title</th>
               <th>Author</th>
               <th>ISBN</th>
+              <th>Type</th>
               <th>Genre</th>
               <th>Year</th>
               <th>Copies</th>
@@ -259,13 +274,14 @@ export default function AdminBooks() {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan="10" className="no-data">No books found.</td></tr>
+              <tr><td colSpan="11" className="no-data">No resources found.</td></tr>
             ) : filtered.map((book, i) => (
               <tr key={book.id}>
                 <td>{i + 1}</td>
                 <td><strong>{book.title}</strong></td>
                 <td>{book.author}</td>
                 <td className="mono">{book.isbn}</td>
+                <td><span className="tag tag-type">{book.type || 'Book'}</span></td>
                 <td><span className="tag">{book.genre}</span></td>
                 <td>{book.year}</td>
                 <td>{book.copies}</td>

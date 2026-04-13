@@ -1,17 +1,23 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getBooks, getUsers, getBorrows } from '../utils/storage';
+import { getBooks, getUsers, getBorrows, getHolds } from '../utils/storage';
 import './AdminDashboard.css';
 
 function loadStats() {
   const books = getBooks();
   const users = getUsers().filter((u) => u.role === 'student');
   const borrows = getBorrows();
+  const holds = getHolds();
+  const now = new Date();
   return {
     books: books.length,
     users: users.length,
-    borrows: borrows.filter((b) => b.status === 'borrowed').length,
+    pendingApproval: borrows.filter((b) => b.status === 'pending_approval').length,
+    activeBorrows: borrows.filter((b) => b.status === 'borrowed').length,
+    overdue: borrows.filter((b) => b.status === 'borrowed' && new Date(b.dueAt) < now).length,
     returned: borrows.filter((b) => b.status === 'returned').length,
+    pendingUsers: users.filter((u) => (u.status || 'active') === 'pending').length,
+    activeHolds: holds.filter((h) => h.status === 'pending').length,
     recentBorrows: [...borrows]
       .sort((a, b) => new Date(b.borrowedAt) - new Date(a.borrowedAt))
       .slice(0, 5),
@@ -33,7 +39,7 @@ export default function AdminDashboard() {
           <span className="stat-icon">📚</span>
           <div>
             <div className="stat-value">{data.books}</div>
-            <div className="stat-label">Total Books</div>
+            <div className="stat-label">Total Resources</div>
           </div>
         </div>
         <div className="stat-card stat-green">
@@ -46,7 +52,7 @@ export default function AdminDashboard() {
         <div className="stat-card stat-orange">
           <span className="stat-icon">📖</span>
           <div>
-            <div className="stat-value">{data.borrows}</div>
+            <div className="stat-value">{data.activeBorrows}</div>
             <div className="stat-label">Active Borrows</div>
           </div>
         </div>
@@ -57,6 +63,34 @@ export default function AdminDashboard() {
             <div className="stat-label">Returned</div>
           </div>
         </div>
+        <div className="stat-card stat-red">
+          <span className="stat-icon">⚠️</span>
+          <div>
+            <div className="stat-value">{data.overdue}</div>
+            <div className="stat-label">Overdue</div>
+          </div>
+        </div>
+        <div className="stat-card stat-yellow">
+          <span className="stat-icon">🕐</span>
+          <div>
+            <div className="stat-value">{data.pendingApproval}</div>
+            <div className="stat-label">Pending Approval</div>
+          </div>
+        </div>
+        <div className="stat-card stat-teal">
+          <span className="stat-icon">📌</span>
+          <div>
+            <div className="stat-value">{data.activeHolds}</div>
+            <div className="stat-label">Active Holds</div>
+          </div>
+        </div>
+        <div className="stat-card stat-indigo">
+          <span className="stat-icon">🔔</span>
+          <div>
+            <div className="stat-value">{data.pendingUsers}</div>
+            <div className="stat-label">Pending Registrations</div>
+          </div>
+        </div>
       </div>
 
       <div className="admin-grid">
@@ -64,16 +98,19 @@ export default function AdminDashboard() {
           <h2>Quick Actions</h2>
           <div className="action-links">
             <Link to="/admin/books/add" className="action-btn action-blue">
-              <span>➕</span> Add New Book
+              <span>➕</span> Add New Resource
             </Link>
             <Link to="/admin/books" className="action-btn action-indigo">
-              <span>📚</span> Manage Books
+              <span>📚</span> Manage Resources
             </Link>
             <Link to="/admin/users" className="action-btn action-green">
               <span>👥</span> Manage Users
             </Link>
             <Link to="/admin/borrows" className="action-btn action-orange">
-              <span>📋</span> View Borrows
+              <span>📋</span> Borrow Records
+            </Link>
+            <Link to="/admin/reports" className="action-btn action-purple">
+              <span>📊</span> Reports
             </Link>
           </div>
         </div>
@@ -93,18 +130,26 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {data.recentBorrows.map((b) => (
-                  <tr key={b.id}>
-                    <td>{b.bookTitle}</td>
-                    <td>{b.userName}</td>
-                    <td>{new Date(b.borrowedAt).toLocaleDateString()}</td>
-                    <td>
-                      <span className={`badge badge-${b.status === 'borrowed' ? 'borrowed' : 'returned'}`}>
-                        {b.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {data.recentBorrows.map((b) => {
+                  const statusLabel =
+                    b.status === 'pending_approval' ? 'Pending' :
+                    b.status === 'rejected' ? 'Rejected' :
+                    b.status === 'borrowed' ? 'Borrowed' : 'Returned';
+                  const badgeClass =
+                    b.status === 'pending_approval' ? 'badge-pending' :
+                    b.status === 'rejected' ? 'badge-rejected' :
+                    b.status === 'borrowed' ? 'badge-borrowed' : 'badge-returned';
+                  return (
+                    <tr key={b.id}>
+                      <td>{b.bookTitle}</td>
+                      <td>{b.userName}</td>
+                      <td>{new Date(b.borrowedAt).toLocaleDateString()}</td>
+                      <td>
+                        <span className={`badge ${badgeClass}`}>{statusLabel}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

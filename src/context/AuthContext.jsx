@@ -26,6 +26,14 @@ export function AuthProvider({ children }) {
       return { success: false, message: 'Invalid email or password.' };
     }
 
+    const status = found.status || 'active';
+    if (status === 'suspended') {
+      return { success: false, message: 'Your account has been suspended. Please contact the library.' };
+    }
+    if (status === 'pending') {
+      return { success: false, message: 'Your account is pending approval by the library administrator.' };
+    }
+
     setUser(found);
     return { success: true, user: found };
   }
@@ -42,6 +50,9 @@ export function AuthProvider({ children }) {
       email,
       passwordHash,
       role: 'student',
+      status: 'pending',
+      studentId: '',
+      phone: '',
       createdAt: new Date().toISOString(),
     };
     saveUsers([...users, newUser]);

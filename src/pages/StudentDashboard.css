@@ -1,3 +1,40 @@
+/* Dashboard alerts */
+.dash-alert {
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dash-alert-overdue { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+.dash-alert-due-soon { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
+.dash-alert-link { color: inherit; font-weight: 700; text-decoration: underline; margin-left: auto; }
+
+/* Notifications panel */
+.dash-notifications {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid #818cf8;
+}
+.dash-notifications h3 { font-size: 0.95rem; color: #1a237e; margin: 0 0 0.75rem; }
+.notif-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0; border-bottom: 1px solid #f3f4f6; font-size: 0.85rem; }
+.notif-item:last-child { border-bottom: none; }
+.notif-msg { flex: 1; color: #333; }
+.notif-dismiss { background: none; border: none; color: #aaa; cursor: pointer; font-size: 1rem; padding: 0; }
+.notif-dismiss:hover { color: #666; }
+
+/* section subtitle */
+.section-sub { font-size: 0.85rem; color: #888; font-weight: 400; margin-left: 0.4rem; }
+
+/* Extra stat colors */
+.stat-yellow { border-left-color: #d97706; }
+
 .page-container {
   max-width: 1200px;
   margin: 0 auto;
