@@ -203,6 +203,11 @@
   font-weight: 600;
 }
 
+.tag-type {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .badge {
   font-size: 0.75rem;
   padding: 0.2rem 0.6rem;

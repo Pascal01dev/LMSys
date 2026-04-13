@@ -15,6 +15,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminBooks from './pages/AdminBooks';
 import AdminUsers from './pages/AdminUsers';
 import AdminBorrows from './pages/AdminBorrows';
+import AdminReports from './pages/AdminReports';
 
 // Seed initial data (async: hashes admin password on first run)
 initStorage();
@@ -90,6 +91,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute adminOnly>
                 <AdminBorrows />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/reports"
+            element={
+              <ProtectedRoute adminOnly>
+                <AdminReports />
               </ProtectedRoute>
             }
           />

@@ -1,0 +1,157 @@
+.page-container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+.page-header { margin-bottom: 2rem; }
+.page-header h1 { font-size: 2rem; color: #1a237e; margin: 0 0 0.4rem; }
+.page-header p { color: #555; margin: 0; }
+
+/* Summary stat cards */
+.report-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.report-stat-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  padding: 1.2rem 1rem;
+  text-align: center;
+  border-top: 3px solid #c7d2fe;
+  transition: transform 0.2s;
+}
+
+.report-stat-card:hover { transform: translateY(-2px); }
+
+.report-stat-icon { font-size: 1.8rem; display: block; margin-bottom: 0.4rem; }
+.report-stat-value { font-size: 1.7rem; font-weight: 700; color: #1a237e; line-height: 1.1; }
+.report-stat-label { font-size: 0.78rem; color: #666; margin-top: 0.25rem; }
+
+/* Panel grid */
+.report-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .report-grid { grid-template-columns: 1fr; }
+}
+
+.report-panel {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  padding: 1.5rem;
+}
+
+.report-panel h2 {
+  font-size: 1.05rem;
+  color: #1a237e;
+  margin: 0 0 1rem;
+}
+
+.report-panel-full { margin-bottom: 2rem; }
+
+.report-hint { font-size: 0.85rem; color: #888; margin: -0.4rem 0 0.8rem; }
+
+/* Bar chart */
+.bar-chart { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.bar-label {
+  width: 130px;
+  flex-shrink: 0;
+  color: #444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-track {
+  flex: 1;
+  height: 14px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.4s;
+  min-width: 4px;
+}
+
+.bar-fill-blue { background: linear-gradient(90deg, #4f46e5, #818cf8); }
+.bar-fill-green { background: linear-gradient(90deg, #16a34a, #4ade80); }
+
+.bar-count { width: 28px; text-align: right; color: #555; font-weight: 600; flex-shrink: 0; }
+
+/* Overdue summary */
+.overdue-summary {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.overdue-stat { display: flex; flex-direction: column; align-items: center; }
+.overdue-num { font-size: 2rem; font-weight: 700; color: #1a237e; }
+.overdue-num.overdue-red { color: #b91c1c; }
+.overdue-lbl { font-size: 0.8rem; color: #666; }
+
+/* Report table */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.report-table th { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid #e5e7eb; color: #374151; font-weight: 700; }
+.report-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #f3f4f6; color: #444; }
+.report-table tr:last-child td { border-bottom: none; }
+.report-table tr:hover td { background: #f9fafb; }
+
+/* Inventory data table */
+.table-wrapper { overflow-x: auto; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.data-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 0.88rem; }
+.data-table th { background: #f0f4ff; padding: 0.75rem 1rem; text-align: left; font-weight: 700; color: #1a237e; border-bottom: 2px solid #c7d2fe; white-space: nowrap; }
+.data-table td { padding: 0.7rem 1rem; border-bottom: 1px solid #f3f4f6; color: #333; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover td { background: #f9fafb; }
+
+.no-data { text-align: center; color: #888; padding: 2rem; font-style: italic; }
+
+.tag { background: #e8eaf6; color: #1a237e; padding: 0.15rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+.tag-type { background: #fef3c7; color: #92400e; }
+
+.badge { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 600; }
+.badge-available { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
+.badge-unavailable { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+/* Utilisation bar */
+.util-bar-track {
+  display: inline-block;
+  width: 80px;
+  height: 10px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  overflow: hidden;
+  vertical-align: middle;
+  margin-right: 0.4rem;
+}
+
+.util-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s;
+  min-width: 2px;
+}
+
+.util-pct { font-size: 0.78rem; color: #555; vertical-align: middle; }
