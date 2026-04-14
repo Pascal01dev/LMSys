@@ -1,16 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 import { useAuth } from '../context/AuthContext';
-import {
-  getBorrows, saveBorrows, saveBooks, getBooks,
-  getHolds, saveHolds,
-  getNotifications, saveNotifications,
-} from '../utils/storage';
+import { borrowsApi, holdsApi, notificationsApi, booksApi } from '../utils/api';
 import './MyBorrows.css';
 
 const FINE_PER_DAY = 0.50;
 
 function calcFine(b) {
-  if (b.status !== 'borrowed') return 0;
+  if (b.status !== 'borrowed' && b.status !== 'return_pending') return 0;
   const overdueDays = Math.max(0, Math.floor((Date.now() - new Date(b.dueAt)) / 86400000));
   return overdueDays * FINE_PER_DAY;
 }
@@ -20,30 +17,42 @@ function daysUntilDue(b) {
   return Math.ceil((new Date(b.dueAt) - Date.now()) / 86400000);
 }
 
-function loadUserBorrows(userId) {
-  return getBorrows()
-    .filter((b) => b.userId === userId)
-    .sort((a, b) => new Date(b.borrowedAt) - new Date(a.borrowedAt));
-}
+
+
 
 export default function MyBorrows() {
   const { user } = useAuth();
-  const [borrows, setBorrows] = useState(() => loadUserBorrows(user.id));
-  const [holds, setHolds] = useState(() =>
-    getHolds().filter((h) => h.userId === user.id)
-  );
-  const [notifications, setNotifications] = useState(() =>
-    getNotifications().filter((n) => n.userId === user.id)
-  );
+  const [borrows, setBorrows] = useState([]);
+  const [holds, setHolds] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [message, setMessage] = useState(null);
-  const [reviewTarget, setReviewTarget] = useState(null); // borrow object
+  const [reviewTarget, setReviewTarget] = useState(null);
   const [reviewForm, setReviewForm] = useState({ rating: 5, text: '' });
   const [activeTab, setActiveTab] = useState('active');
 
-  function refresh() {
-    setBorrows(loadUserBorrows(user.id));
-    setHolds(getHolds().filter((h) => h.userId === user.id));
-    setNotifications(getNotifications().filter((n) => n.userId === user.id));
+  // Initialise on mount
+  useEffect(() => {
+    (async () => {
+      const [b, h, n] = await Promise.all([
+        borrowsApi.listByUser(user.id),
+        holdsApi.listByUser(user.id),
+        notificationsApi.listByUser(user.id),
+      ]);
+      setBorrows(b.data);
+      setHolds(h.data);
+      setNotifications(n.data);
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function refresh() {
+    const [b, h, n] = await Promise.all([
+      borrowsApi.listByUser(user.id),
+      holdsApi.listByUser(user.id),
+      notificationsApi.listByUser(user.id),
+    ]);
+    setBorrows(b.data);
+    setHolds(h.data);
+    setNotifications(n.data);
   }
 
   function showMsg(text, type = 'success') {
@@ -51,79 +60,71 @@ export default function MyBorrows() {
     setTimeout(() => setMessage(null), 4000);
   }
 
-  function handleReturn(borrow) {
-    const allBorrows = getBorrows();
-    const updated = allBorrows.map((b) =>
-      b.id === borrow.id ? { ...b, status: 'returned', returnedAt: new Date().toISOString() } : b
-    );
-    saveBorrows(updated);
-
-    const books = getBooks();
-    saveBooks(books.map((bk) =>
-      bk.id === borrow.bookId ? { ...bk, available: bk.available + 1 } : bk
-    ));
-    setBorrows(loadUserBorrows(user.id));
-    showMsg(`"${borrow.bookTitle}" returned successfully.`);
+  async function handleScheduleReturn(borrow) {
+    const result = await Swal.fire({
+      title: 'Schedule Return?',
+      html: `Schedule the return of <strong>"${borrow.bookTitle}"</strong>?<br/><small class="text-muted">The librarian will confirm once the book is received.</small>`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#1a237e',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, schedule return',
+    });
+    if (!result.isConfirmed) return;
+    await borrowsApi.scheduleReturn(borrow.id);
+    Swal.fire({
+      title: 'Return Scheduled!',
+      text: 'Your return request has been submitted. The librarian will confirm once the book is received.',
+      icon: 'success',
+      timer: 2500,
+      showConfirmButton: false,
+    });
+    refresh();
   }
 
-  function handleCancelHold(hold) {
-    const all = getHolds();
-    saveHolds(all.map((h) =>
-      h.id === hold.id ? { ...h, status: 'cancelled' } : h
-    ));
-    setHolds(getHolds().filter((h) => h.userId === user.id));
+  async function handleCancelHold(hold) {
+    await holdsApi.cancel(hold.id);
+    refresh();
     showMsg(`Hold for "${hold.bookTitle}" cancelled.`);
   }
 
-  function dismissNotification(id) {
-    const all = getNotifications().map((n) =>
-      n.id === id ? { ...n, read: true } : n
-    );
-    saveNotifications(all);
-    setNotifications(all.filter((n) => n.userId === user.id));
+  async function dismissNotification(id) {
+    await notificationsApi.dismiss(id);
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   }
 
   function openReview(borrow) {
-    const book = getBooks().find((b) => b.id === borrow.bookId);
-    const existingReview = (book?.reviews || []).find((r) => r.userId === user.id);
-    setReviewForm({ rating: existingReview?.rating || 5, text: existingReview?.text || '' });
+    setReviewForm({ rating: 5, text: '' });
     setReviewTarget(borrow);
   }
 
-  function handleSubmitReview(e) {
+  async function handleSubmitReview(e) {
     e.preventDefault();
-    const allBooks = getBooks();
-    const updated = allBooks.map((b) => {
-      if (b.id !== reviewTarget.bookId) return b;
-      const reviews = b.reviews || [];
-      const existingIdx = reviews.findIndex((r) => r.userId === user.id);
-      const newReview = {
-        id: existingIdx >= 0 ? reviews[existingIdx].id : crypto.randomUUID(),
-        userId: user.id,
-        userName: user.name,
-        rating: reviewForm.rating,
-        text: reviewForm.text.trim(),
-        createdAt: new Date().toISOString(),
-      };
-      const updatedReviews = existingIdx >= 0
-        ? reviews.map((r, i) => i === existingIdx ? newReview : r)
-        : [...reviews, newReview];
-      return { ...b, reviews: updatedReviews };
+    await booksApi.addReview(reviewTarget.bookId, {
+      userId: user.id,
+      userName: user.name,
+      rating: reviewForm.rating,
+      text: reviewForm.text.trim(),
     });
-    saveBooks(updated);
+    // close Bootstrap modal
+    const modalEl = document.getElementById('reviewModal');
+    if (modalEl) {
+      const bsModal = window.bootstrap?.Modal.getInstance(modalEl);
+      bsModal?.hide();
+    }
     setReviewTarget(null);
     showMsg('Review submitted! Thank you.');
   }
 
   const active = borrows.filter((b) => b.status === 'borrowed');
+  const returnPending = borrows.filter((b) => b.status === 'return_pending');
   const pending = borrows.filter((b) => b.status === 'pending_approval');
   const history = borrows.filter((b) => b.status === 'returned' || b.status === 'rejected');
   const activeHolds = holds.filter((h) => h.status === 'pending');
   const fulfilledHolds = holds.filter((h) => h.status === 'fulfilled');
   const unreadNotifications = notifications.filter((n) => !n.read);
 
-  // Compute alerts from active borrows
-  const alerts = active.map((b) => {
+  const alerts = [...active, ...returnPending].map((b) => {
     const days = daysUntilDue(b);
     const fine = calcFine(b);
     if (days !== null && days < 0) {
@@ -137,6 +138,7 @@ export default function MyBorrows() {
 
   const tabs = [
     { key: 'active', label: `Active (${active.length})` },
+    { key: 'return_pending', label: `Awaiting Confirmation (${returnPending.length})` },
     { key: 'pending', label: `Pending (${pending.length})` },
     { key: 'holds', label: `Holds (${activeHolds.length})` },
     { key: 'history', label: `History (${history.length})` },
@@ -174,49 +176,57 @@ export default function MyBorrows() {
         </div>
       )}
 
-      {/* Review modal */}
-      {reviewTarget && (
-        <div className="modal-overlay" onClick={() => setReviewTarget(null)}>
-          <div className="review-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Rate &amp; Review</h2>
-            <p className="review-book-title">"{reviewTarget.bookTitle}"</p>
-            <form onSubmit={handleSubmitReview} className="review-form">
-              <div className="form-group">
-                <label>Rating</label>
-                <div className="star-selector">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      className={`star-btn ${reviewForm.rating >= n ? 'star-active' : ''}`}
-                      onClick={() => setReviewForm({ ...reviewForm, rating: n })}
-                      aria-label={`${n} star${n > 1 ? 's' : ''}`}
-                    >
-                      ★
-                    </button>
-                  ))}
-                  <span className="rating-text">{reviewForm.rating}/5</span>
+      {/* Bootstrap Review Modal */}
+      <div className="modal fade" id="reviewModal" tabIndex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="reviewModalLabel">Rate &amp; Review</h5>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            {reviewTarget && (
+              <form onSubmit={handleSubmitReview}>
+                <div className="modal-body">
+                  <p className="review-book-title">"{reviewTarget.bookTitle}"</p>
+                  <div className="form-group mb-3">
+                    <label className="form-label">Rating</label>
+                    <div className="star-selector">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`star-btn ${reviewForm.rating >= n ? 'star-active' : ''}`}
+                          onClick={() => setReviewForm({ ...reviewForm, rating: n })}
+                          aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                      <span className="rating-text">{reviewForm.rating}/5</span>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Review (optional)</label>
+                    <textarea
+                      className="form-control"
+                      value={reviewForm.text}
+                      onChange={(e) => setReviewForm({ ...reviewForm, text: e.target.value })}
+                      rows={3}
+                      maxLength={300}
+                      placeholder="Share your thoughts to help other students…"
+                    />
+                    <span className="char-count">{reviewForm.text.length}/300</span>
+                  </div>
                 </div>
-              </div>
-              <div className="form-group">
-                <label>Review (optional)</label>
-                <textarea
-                  value={reviewForm.text}
-                  onChange={(e) => setReviewForm({ ...reviewForm, text: e.target.value })}
-                  rows={3}
-                  maxLength={300}
-                  placeholder="Share your thoughts to help other students…"
-                />
-                <span className="char-count">{reviewForm.text.length}/300</span>
-              </div>
-              <div className="review-form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setReviewTarget(null)}>Cancel</button>
-                <button type="submit" className="btn-primary">Submit Review</button>
-              </div>
-            </form>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                  <button type="submit" className="btn btn-primary">Submit Review</button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Tab navigation */}
       <div className="tabs-row">
@@ -252,10 +262,35 @@ export default function MyBorrows() {
                         {dueSoon && !overdue && ` ⏰ Due in ${days} day${days !== 1 ? 's' : ''}`}
                       </p>
                     </div>
-                    <button className="btn-return" onClick={() => handleReturn(b)}>Return</button>
+                    <button className="btn-return" onClick={() => handleScheduleReturn(b)}>
+                      📦 Schedule Return
+                    </button>
                   </div>
                 );
               })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Return pending — awaiting admin confirmation */}
+      {activeTab === 'return_pending' && (
+        <section className="borrow-section">
+          {returnPending.length === 0 ? (
+            <p className="no-borrows">No return requests awaiting confirmation.</p>
+          ) : (
+            <div className="borrow-list">
+              {returnPending.map((b) => (
+                <div key={b.id} className="borrow-card pending">
+                  <div className="borrow-icon">🔄</div>
+                  <div className="borrow-info">
+                    <h3>{b.bookTitle}</h3>
+                    <p>Return requested: {b.returnRequestedAt ? new Date(b.returnRequestedAt).toLocaleDateString() : '—'}</p>
+                    <p className="text-orange">Awaiting librarian confirmation…</p>
+                  </div>
+                  <span className="badge badge-return-pending">Return Pending</span>
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -343,7 +378,14 @@ export default function MyBorrows() {
                   <div className="history-actions">
                     <span className={`badge badge-${b.status}`}>{b.status === 'returned' ? 'Returned' : 'Rejected'}</span>
                     {b.status === 'returned' && (
-                      <button className="btn-review-link" onClick={() => openReview(b)}>⭐ Review</button>
+                      <button
+                        className="btn-review-link"
+                        data-bs-toggle="modal"
+                        data-bs-target="#reviewModal"
+                        onClick={() => openReview(b)}
+                      >
+                        ⭐ Review
+                      </button>
                     )}
                   </div>
                 </div>

@@ -60,6 +60,7 @@
 .badge-overdue { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
 .badge-pending { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
 .badge-rejected { background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; }
+.badge-return-pending { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
 
 .btn-return { background: #e8f5e9; color: #2e7d32; border: 1.5px solid #86efac; padding: 0.3rem 0.75rem; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
 .btn-return:hover { background: #d1fae5; }

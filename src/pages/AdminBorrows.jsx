@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import {
-  getBorrows, saveBorrows, getBooks, saveBooks,
-  getHolds, saveHolds, addNotification,
-} from '../utils/storage';
+import Swal from 'sweetalert2';
+import { borrowsApi, holdsApi } from '../utils/api';
+import { getBorrows, getHolds } from '../utils/storage';
 import './AdminBorrows.css';
 
 function loadAll() {
@@ -12,7 +11,7 @@ function loadAll() {
 const FINE_PER_DAY = 0.50;
 
 function calcFine(b) {
-  if (b.status !== 'borrowed') return 0;
+  if (b.status !== 'borrowed' && b.status !== 'return_pending') return 0;
   const overdueDays = Math.max(0, Math.floor((Date.now() - new Date(b.dueAt)) / 86400000));
   return overdueDays * FINE_PER_DAY;
 }
@@ -34,86 +33,82 @@ export default function AdminBorrows() {
     setTimeout(() => setMessage(null), 4000);
   }
 
-  function handleApprove(borrow) {
-    const books = getBooks();
-    const book = books.find((bk) => bk.id === borrow.bookId);
-    if (!book || book.available < 1) {
-      showMsg('No available copies to approve this borrow.', 'error');
-      return;
+  async function handleApprove(borrow) {
+    try {
+      await borrowsApi.approve(borrow.id);
+      showMsg(`Borrow approved for "${borrow.bookTitle}".`);
+      refresh();
+    } catch (err) {
+      showMsg(err.message || 'Could not approve borrow.', 'error');
     }
+  }
 
-    const now = new Date();
-    const due = new Date(now);
-    due.setDate(due.getDate() + 14);
-
-    saveBorrows(getBorrows().map((b) =>
-      b.id === borrow.id
-        ? { ...b, status: 'borrowed', borrowedAt: now.toISOString(), dueAt: due.toISOString() }
-        : b
-    ));
-    saveBooks(books.map((bk) =>
-      bk.id === borrow.bookId ? { ...bk, available: bk.available - 1 } : bk
-    ));
-    addNotification({
-      userId: borrow.userId,
-      type: 'borrow_approved',
-      message: `Your borrow request for "${borrow.bookTitle}" has been approved. Due in 14 days.`,
+  async function handleReject(borrow) {
+    const result = await Swal.fire({
+      title: 'Reject Borrow Request?',
+      text: `Reject borrow request for "${borrow.bookTitle}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, reject it',
     });
-    showMsg(`Borrow approved for "${borrow.bookTitle}".`);
+    if (!result.isConfirmed) return;
+    await borrowsApi.reject(borrow.id);
+    showMsg('Borrow request rejected.');
     refresh();
   }
 
-  function handleReject(borrow) {
-    if (!window.confirm(`Reject borrow request for "${borrow.bookTitle}"?`)) return;
-    saveBorrows(getBorrows().map((b) =>
-      b.id === borrow.id ? { ...b, status: 'rejected' } : b
-    ));
-    addNotification({
-      userId: borrow.userId,
-      type: 'borrow_rejected',
-      message: `Your borrow request for "${borrow.bookTitle}" was not approved. Please contact the library for more info.`,
+  async function handleConfirmReturn(borrow) {
+    const result = await Swal.fire({
+      title: 'Confirm Return?',
+      text: `Confirm that "${borrow.bookTitle}" has been physically returned by ${borrow.userName}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#198754',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, confirm return',
     });
-    showMsg(`Borrow request rejected.`);
+    if (!result.isConfirmed) return;
+    await borrowsApi.confirmReturn(borrow.id);
+    Swal.fire({
+      title: 'Return Confirmed!',
+      text: `"${borrow.bookTitle}" has been marked as returned.`,
+      icon: 'success',
+      timer: 2000,
+      showConfirmButton: false,
+    });
     refresh();
   }
 
-  function handleReturn(borrow) {
-    if (!window.confirm(`Mark "${borrow.bookTitle}" as returned?`)) return;
-    const allBorrows = getBorrows();
-    saveBorrows(allBorrows.map((b) =>
-      b.id === borrow.id ? { ...b, status: 'returned', returnedAt: new Date().toISOString() } : b
-    ));
-
-    const books = getBooks();
-    saveBooks(books.map((bk) =>
-      bk.id === borrow.bookId ? { ...bk, available: bk.available + 1 } : bk
-    ));
-
-    // Notify the next person on the hold queue for this book
-    const allHolds = getHolds();
-    const nextHold = allHolds.find(
-      (h) => h.bookId === borrow.bookId && h.status === 'pending'
-    );
-    if (nextHold) {
-      saveHolds(allHolds.map((h) =>
-        h.id === nextHold.id ? { ...h, status: 'fulfilled', fulfilledAt: new Date().toISOString() } : h
-      ));
-      addNotification({
-        userId: nextHold.userId,
-        type: 'hold_fulfilled',
-        message: `"${nextHold.bookTitle}" is now available! Your hold has been fulfilled. Please borrow it within 3 days.`,
-      });
-    }
-
-    showMsg('Book marked as returned.');
+  async function handleRejectReturn(borrow) {
+    const result = await Swal.fire({
+      title: 'Reject Return Request?',
+      text: `Reject the return request for "${borrow.bookTitle}" by ${borrow.userName}? The borrow will remain active.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, reject return',
+    });
+    if (!result.isConfirmed) return;
+    await borrowsApi.rejectReturn(borrow.id);
+    showMsg(`Return request for "${borrow.bookTitle}" rejected. Borrow remains active.`);
     refresh();
   }
 
-  function handleCancelHold(hold) {
-    if (!window.confirm(`Cancel hold for "${hold.bookTitle}" by ${hold.userName}?`)) return;
-    saveHolds(getHolds().map((h) =>
-      h.id === hold.id ? { ...h, status: 'cancelled' } : h
-    ));
+  async function handleCancelHold(hold) {
+    const result = await Swal.fire({
+      title: 'Cancel Hold?',
+      text: `Cancel hold for "${hold.bookTitle}" by ${hold.userName}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, cancel hold',
+    });
+    if (!result.isConfirmed) return;
+    await holdsApi.cancel(hold.id);
     showMsg('Hold cancelled.');
     refresh();
   }
@@ -122,6 +117,7 @@ export default function AdminBorrows() {
 
   const pending = borrows.filter((b) => b.status === 'pending_approval');
   const active = borrows.filter((b) => b.status === 'borrowed');
+  const returnRequests = borrows.filter((b) => b.status === 'return_pending');
   const overdue = borrows.filter((b) => b.status === 'borrowed' && new Date(b.dueAt) < now);
   const returned = borrows.filter((b) => b.status === 'returned');
   const rejected = borrows.filter((b) => b.status === 'rejected');
@@ -137,6 +133,7 @@ export default function AdminBorrows() {
   const tabs = [
     { key: 'pending', label: `Pending (${pending.length})` },
     { key: 'borrowed', label: `Active (${active.length})` },
+    { key: 'return_requests', label: `Return Requests (${returnRequests.length})` },
     { key: 'overdue', label: `Overdue (${overdue.length})` },
     { key: 'returned', label: `Returned (${returned.length})` },
     { key: 'rejected', label: `Rejected (${rejected.length})` },
@@ -146,6 +143,7 @@ export default function AdminBorrows() {
   let displayList = [];
   if (activeTab === 'pending') displayList = applySearch(pending);
   else if (activeTab === 'borrowed') displayList = applySearch(active);
+  else if (activeTab === 'return_requests') displayList = applySearch(returnRequests);
   else if (activeTab === 'overdue') displayList = applySearch(overdue);
   else if (activeTab === 'returned') displayList = applySearch(returned);
   else if (activeTab === 'rejected') displayList = applySearch(rejected);
@@ -223,6 +221,7 @@ export default function AdminBorrows() {
                 <th>Student</th>
                 <th>Requested On</th>
                 <th>Due Date</th>
+                <th>Return Requested</th>
                 <th>Returned On</th>
                 <th>Fine</th>
                 <th>Status</th>
@@ -231,10 +230,20 @@ export default function AdminBorrows() {
             </thead>
             <tbody>
               {displayList.length === 0 ? (
-                <tr><td colSpan="9" className="no-data">No records found.</td></tr>
+                <tr><td colSpan="10" className="no-data">No records found.</td></tr>
               ) : displayList.map((b, i) => {
-                const isOverdue = b.status === 'borrowed' && new Date(b.dueAt) < now;
+                const isOverdue = (b.status === 'borrowed' || b.status === 'return_pending') && new Date(b.dueAt) < now;
                 const fine = calcFine(b);
+                const statusKey =
+                  b.status === 'pending_approval' ? 'pending' :
+                  b.status === 'return_pending' ? 'return-pending' :
+                  b.status === 'rejected' ? 'rejected' :
+                  b.status === 'borrowed' ? (isOverdue ? 'overdue' : 'borrowed') : 'returned';
+                const statusLabel =
+                  b.status === 'pending_approval' ? 'Pending' :
+                  b.status === 'return_pending' ? 'Return Pending' :
+                  b.status === 'rejected' ? 'Rejected' :
+                  isOverdue ? 'Overdue' : b.status;
                 return (
                   <tr key={b.id} className={isOverdue ? 'row-overdue' : ''}>
                     <td>{i + 1}</td>
@@ -244,20 +253,15 @@ export default function AdminBorrows() {
                     <td className={isOverdue ? 'text-red' : ''}>
                       {b.dueAt ? new Date(b.dueAt).toLocaleDateString() : '—'}
                     </td>
+                    <td>
+                      {b.returnRequestedAt ? new Date(b.returnRequestedAt).toLocaleDateString() : '—'}
+                    </td>
                     <td>{b.returnedAt ? new Date(b.returnedAt).toLocaleDateString() : '—'}</td>
                     <td className={fine > 0 ? 'text-red' : ''}>
                       {fine > 0 ? `$${fine.toFixed(2)}` : '—'}
                     </td>
                     <td>
-                      <span className={`badge badge-${
-                        b.status === 'pending_approval' ? 'pending' :
-                        b.status === 'rejected' ? 'rejected' :
-                        b.status === 'borrowed' ? (isOverdue ? 'overdue' : 'borrowed') : 'returned'
-                      }`}>
-                        {b.status === 'pending_approval' ? 'Pending' :
-                         b.status === 'rejected' ? 'Rejected' :
-                         isOverdue ? 'Overdue' : b.status}
-                      </span>
+                      <span className={`badge badge-${statusKey}`}>{statusLabel}</span>
                     </td>
                     <td className="actions-cell">
                       {b.status === 'pending_approval' && (
@@ -266,8 +270,11 @@ export default function AdminBorrows() {
                           <button className="btn-reject" onClick={() => handleReject(b)}>Reject</button>
                         </>
                       )}
-                      {b.status === 'borrowed' && (
-                        <button className="btn-return" onClick={() => handleReturn(b)}>Mark Returned</button>
+                      {b.status === 'return_pending' && (
+                        <>
+                          <button className="btn-approve" onClick={() => handleConfirmReturn(b)}>Confirm Return</button>
+                          <button className="btn-reject" onClick={() => handleRejectReturn(b)}>Reject Return</button>
+                        </>
                       )}
                     </td>
                   </tr>
