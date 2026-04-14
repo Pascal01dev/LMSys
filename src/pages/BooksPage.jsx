@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { booksApi, borrowsApi, holdsApi } from '../utils/api';
 import {
   getBooks,
-  saveBooks,
   getBorrows,
-  saveBorrows,
   getHolds,
-  saveHolds,
   getNotifications,
   markNotificationsRead,
 } from '../utils/storage';
@@ -39,8 +37,10 @@ export default function BooksPage() {
   const [filterType, setFilterType] = useState('');
   const [message, setMessage] = useState(null);
   const [pdfViewer, setPdfViewer] = useState(null);
-  const [reviewModal, setReviewModal] = useState(null); // { bookId, bookTitle }
+  const [reviewModal, setReviewModal] = useState(null);
   const [reviewForm, setReviewForm] = useState({ rating: 5, text: '' });
+  const pdfModalRef = useRef(null);
+  const reviewModalRef = useRef(null);
 
   function reload() {
     setBooks(getBooks());
@@ -53,7 +53,45 @@ export default function BooksPage() {
     setTimeout(() => setMessage(null), 3500);
   }
 
-  function handleBorrow(book) {
+  // PDF modal sync
+  useEffect(() => {
+    if (!pdfModalRef.current) return;
+    const bsModal = window.bootstrap?.Modal.getOrCreateInstance(pdfModalRef.current);
+    if (pdfViewer) {
+      bsModal?.show();
+    } else {
+      bsModal?.hide();
+    }
+  }, [pdfViewer]);
+
+  useEffect(() => {
+    const el = pdfModalRef.current;
+    if (!el) return;
+    const handler = () => setPdfViewer(null);
+    el.addEventListener('hidden.bs.modal', handler);
+    return () => el.removeEventListener('hidden.bs.modal', handler);
+  }, []);
+
+  // Review modal sync
+  useEffect(() => {
+    if (!reviewModalRef.current) return;
+    const bsModal = window.bootstrap?.Modal.getOrCreateInstance(reviewModalRef.current);
+    if (reviewModal) {
+      bsModal?.show();
+    } else {
+      bsModal?.hide();
+    }
+  }, [reviewModal]);
+
+  useEffect(() => {
+    const el = reviewModalRef.current;
+    if (!el) return;
+    const handler = () => setReviewModal(null);
+    el.addEventListener('hidden.bs.modal', handler);
+    return () => el.removeEventListener('hidden.bs.modal', handler);
+  }, []);
+
+  async function handleBorrow(book) {
     const alreadyActive = borrows.find(
       (b) => b.bookId === book.id && b.userId === user.id &&
         (b.status === 'borrowed' || b.status === 'pending_approval')
@@ -66,25 +104,17 @@ export default function BooksPage() {
       showMsg('No copies available right now.', 'error');
       return;
     }
-
-    const newBorrow = {
-      id: crypto.randomUUID(),
+    const { data: newBorrow } = await borrowsApi.create({
       bookId: book.id,
       bookTitle: book.title,
       userId: user.id,
       userName: user.name,
-      borrowedAt: new Date().toISOString(),
-      dueAt: null,
-      status: 'pending_approval',
-    };
-
-    const updatedBorrows = [...borrows, newBorrow];
-    saveBorrows(updatedBorrows);
-    setBorrows(updatedBorrows);
+    });
+    setBorrows((prev) => [...prev, newBorrow]);
     showMsg(`Borrow request for "${book.title}" submitted. Awaiting admin approval.`);
   }
 
-  function handleHold(book) {
+  async function handleHold(book) {
     const existingHold = holds.find(
       (h) => h.bookId === book.id && h.userId === user.id && h.status === 'pending'
     );
@@ -92,30 +122,23 @@ export default function BooksPage() {
       showMsg('You already have an active hold for this book.', 'error');
       return;
     }
-
-    const newHold = {
-      id: crypto.randomUUID(),
+    const { data: newHold } = await holdsApi.create({
       bookId: book.id,
       bookTitle: book.title,
       userId: user.id,
       userName: user.name,
-      createdAt: new Date().toISOString(),
-      status: 'pending',
-    };
-    const updatedHolds = [...holds, newHold];
-    saveHolds(updatedHolds);
-    setHolds(updatedHolds);
+    });
+    setHolds((prev) => [...prev, newHold]);
     showMsg(`Hold placed for "${book.title}". You'll be notified when it becomes available.`);
   }
 
-  function handleCancelHold(book) {
-    const updatedHolds = holds.map((h) =>
-      h.bookId === book.id && h.userId === user.id && h.status === 'pending'
-        ? { ...h, status: 'cancelled' }
-        : h
+  async function handleCancelHold(book) {
+    const hold = holds.find(
+      (h) => h.bookId === book.id && h.userId === user.id && h.status === 'pending'
     );
-    saveHolds(updatedHolds);
-    setHolds(updatedHolds);
+    if (!hold) return;
+    await holdsApi.cancel(hold.id);
+    reload();
     showMsg(`Hold for "${book.title}" cancelled.`);
   }
 
@@ -124,27 +147,14 @@ export default function BooksPage() {
     setReviewForm({ rating: 5, text: '' });
   }
 
-  function handleSubmitReview(e) {
+  async function handleSubmitReview(e) {
     e.preventDefault();
-    const allBooks = getBooks();
-    const updated = allBooks.map((b) => {
-      if (b.id !== reviewModal.bookId) return b;
-      const reviews = b.reviews || [];
-      const existing = reviews.findIndex((r) => r.userId === user.id);
-      const newReview = {
-        id: existing >= 0 ? reviews[existing].id : crypto.randomUUID(),
-        userId: user.id,
-        userName: user.name,
-        rating: reviewForm.rating,
-        text: reviewForm.text.trim(),
-        createdAt: new Date().toISOString(),
-      };
-      const updatedReviews = existing >= 0
-        ? reviews.map((r, i) => i === existing ? newReview : r)
-        : [...reviews, newReview];
-      return { ...b, reviews: updatedReviews };
+    await booksApi.addReview(reviewModal.bookId, {
+      userId: user.id,
+      userName: user.name,
+      rating: reviewForm.rating,
+      text: reviewForm.text.trim(),
     });
-    saveBooks(updated);
     setReviewModal(null);
     reload();
     showMsg('Review submitted!');
@@ -156,7 +166,7 @@ export default function BooksPage() {
       (n) => n.userId === user.id && !n.read && n.type === 'hold_fulfilled'
     );
     if (unread.length > 0) markNotificationsRead(user.id);
-  }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user.id]);
 
   const genres = [...new Set(books.map((b) => b.genre))];
   const categories = [...new Set(books.map((b) => b.category))];
@@ -188,68 +198,80 @@ export default function BooksPage() {
         <div className={`alert alert-${message.type}`}>{message.text}</div>
       )}
 
-      {/* PDF viewer modal */}
-      {pdfViewer && (
-        <div className="modal-overlay" onClick={() => setPdfViewer(null)}>
-          <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="pdf-modal-header">
-              <h2>📄 {pdfViewer.title}</h2>
-              <button className="pdf-modal-close" onClick={() => setPdfViewer(null)}>✕ Close</button>
+      {/* Bootstrap PDF viewer modal */}
+      <div className="modal fade" id="pdfViewerModal" tabIndex="-1" aria-labelledby="pdfViewerModalLabel" aria-hidden="true" ref={pdfModalRef}>
+        <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="pdfViewerModalLabel">📄 {pdfViewer?.title}</h5>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <embed
-              src={pdfViewer.url}
-              type="application/pdf"
-              className="pdf-embed"
-              title={pdfViewer.title}
-              aria-label={`PDF document: ${pdfViewer.title}`}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Review modal */}
-      {reviewModal && (
-        <div className="modal-overlay" onClick={() => setReviewModal(null)}>
-          <div className="review-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Rate &amp; Review</h2>
-            <p className="review-book-title">"{reviewModal.bookTitle}"</p>
-            <form onSubmit={handleSubmitReview} className="review-form">
-              <div className="form-group">
-                <label>Rating</label>
-                <div className="star-selector">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      className={`star-btn ${reviewForm.rating >= n ? 'star-active' : ''}`}
-                      onClick={() => setReviewForm({ ...reviewForm, rating: n })}
-                      aria-label={`${n} star${n > 1 ? 's' : ''}`}
-                    >
-                      ★
-                    </button>
-                  ))}
-                  <span className="rating-text">{reviewForm.rating}/5</span>
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Review (optional)</label>
-                <textarea
-                  value={reviewForm.text}
-                  onChange={(e) => setReviewForm({ ...reviewForm, text: e.target.value })}
-                  rows={3}
-                  maxLength={300}
-                  placeholder="Share your thoughts to help other students…"
+            <div className="modal-body p-0" style={{ minHeight: '70vh' }}>
+              {pdfViewer && (
+                <embed
+                  src={pdfViewer.url}
+                  type="application/pdf"
+                  className="pdf-embed"
+                  title={pdfViewer.title}
+                  aria-label={`PDF document: ${pdfViewer.title}`}
                 />
-                <span className="char-count">{reviewForm.text.length}/300</span>
-              </div>
-              <div className="review-form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setReviewModal(null)}>Cancel</button>
-                <button type="submit" className="btn-primary">Submit Review</button>
-              </div>
-            </form>
+              )}
+            </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Bootstrap Review modal */}
+      <div className="modal fade" id="reviewModal" tabIndex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true" ref={reviewModalRef}>
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="reviewModalLabel">Rate &amp; Review</h5>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            {reviewModal && (
+              <form onSubmit={handleSubmitReview}>
+                <div className="modal-body">
+                  <p className="review-book-title">"{reviewModal.bookTitle}"</p>
+                  <div className="form-group mb-3">
+                    <label className="form-label">Rating</label>
+                    <div className="star-selector">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`star-btn ${reviewForm.rating >= n ? 'star-active' : ''}`}
+                          onClick={() => setReviewForm({ ...reviewForm, rating: n })}
+                          aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                      <span className="rating-text">{reviewForm.rating}/5</span>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Review (optional)</label>
+                    <textarea
+                      className="form-control"
+                      value={reviewForm.text}
+                      onChange={(e) => setReviewForm({ ...reviewForm, text: e.target.value })}
+                      rows={3}
+                      maxLength={300}
+                      placeholder="Share your thoughts to help other students…"
+                    />
+                    <span className="char-count">{reviewForm.text.length}/300</span>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                  <button type="submit" className="btn btn-primary">Submit Review</button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="search-bar-row">
         <input

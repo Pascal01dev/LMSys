@@ -102,6 +102,7 @@
 .badge-returned { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
 .badge-pending { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
 .badge-rejected { background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; }
+.badge-return-pending { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
 
 /* Tabs */
 .tabs-row { display: flex; gap: 0.4rem; margin-bottom: 1.2rem; flex-wrap: wrap; }

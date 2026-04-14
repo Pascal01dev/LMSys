@@ -1,5 +1,7 @@
-import { useState, useRef } from 'react';
-import { getBooks, saveBooks } from '../utils/storage';
+import { useState, useRef, useEffect } from 'react';
+import Swal from 'sweetalert2';
+import { booksApi } from '../utils/api';
+import { getBooks } from '../utils/storage';
 import './AdminBooks.css';
 
 const EMPTY_FORM = {
@@ -18,6 +20,7 @@ export default function AdminBooks() {
   const [pdfError, setPdfError] = useState('');
   const [message, setMessage] = useState(null);
   const fileInputRef = useRef(null);
+  const modalRef = useRef(null);
 
   function load() { setBooks(getBooks()); }
 
@@ -25,6 +28,26 @@ export default function AdminBooks() {
     setMessage({ text, type });
     setTimeout(() => setMessage(null), 3000);
   }
+
+  // Show / hide Bootstrap modal imperatively
+  useEffect(() => {
+    if (!modalRef.current) return;
+    const bsModal = window.bootstrap?.Modal.getOrCreateInstance(modalRef.current);
+    if (showForm) {
+      bsModal?.show();
+    } else {
+      bsModal?.hide();
+    }
+  }, [showForm]);
+
+  // Sync React state when the modal is dismissed via the close button / backdrop
+  useEffect(() => {
+    const el = modalRef.current;
+    if (!el) return;
+    const handler = () => setShowForm(false);
+    el.addEventListener('hidden.bs.modal', handler);
+    return () => el.removeEventListener('hidden.bs.modal', handler);
+  }, []);
 
   function openAdd() {
     setEditing(null);
@@ -75,42 +98,20 @@ export default function AdminBooks() {
     setPdfFile(file);
   }
 
-  function persistBook(pdfDataUrl) {
-    const all = getBooks();
-    if (editing) {
-      const updated = all.map((b) => {
-        if (b.id !== editing) return b;
-        const diff = Number(form.copies) - b.copies;
-        return {
-          ...b,
-          ...form,
-          copies: Number(form.copies),
-          year: Number(form.year),
-          available: Math.max(0, b.available + diff),
-          // Keep existing PDF if no new file was selected
-          pdfDataUrl: pdfDataUrl !== undefined ? pdfDataUrl : b.pdfDataUrl,
-        };
-      });
-      saveBooks(updated);
-      showMsg('Book updated successfully.');
-    } else {
-      const exists = all.find((b) => b.isbn === form.isbn);
-      if (exists) { showMsg('A book with this ISBN already exists.', 'error'); return; }
-      const newBook = {
-        id: crypto.randomUUID(),
-        ...form,
-        copies: Number(form.copies),
-        year: Number(form.year),
-        available: Number(form.copies),
-        reviews: [],
-        pdfDataUrl: pdfDataUrl || null,
-        addedAt: new Date().toISOString(),
-      };
-      saveBooks([...all, newBook]);
-      showMsg('Book added successfully.');
+  async function persistBook(pdfDataUrl) {
+    try {
+      if (editing) {
+        await booksApi.update(editing, { ...form, pdfDataUrl });
+        showMsg('Book updated successfully.');
+      } else {
+        await booksApi.create({ ...form, pdfDataUrl });
+        showMsg('Book added successfully.');
+      }
+      setShowForm(false);
+      load();
+    } catch (err) {
+      showMsg(err.message || 'Operation failed.', 'error');
     }
-    setShowForm(false);
-    load();
   }
 
   function handleSubmit(e) {
@@ -120,14 +121,22 @@ export default function AdminBooks() {
       reader.onload = () => persistBook(reader.result);
       reader.readAsDataURL(pdfFile);
     } else {
-      // undefined → keep existing PDF (edit); null handled in persistBook for new
       persistBook(undefined);
     }
   }
 
-  function handleDelete(book) {
-    if (!window.confirm(`Delete "${book.title}"? This cannot be undone.`)) return;
-    saveBooks(getBooks().filter((b) => b.id !== book.id));
+  async function handleDelete(book) {
+    const result = await Swal.fire({
+      title: 'Delete Book?',
+      text: `Delete "${book.title}"? This cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, delete it',
+    });
+    if (!result.isConfirmed) return;
+    await booksApi.remove(book.id);
     showMsg('Book deleted.');
     load();
   }
@@ -142,7 +151,6 @@ export default function AdminBooks() {
     );
   });
 
-  // Find current book PDF state for the edit form hint
   const editingBook = editing ? books.find((b) => b.id === editing) : null;
 
   return (
@@ -157,91 +165,97 @@ export default function AdminBooks() {
 
       {message && <div className={`alert alert-${message.type}`}>{message.text}</div>}
 
-      {showForm && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h2>{editing ? 'Edit Book' : 'Add New Book'}</h2>
-            <form onSubmit={handleSubmit} className="book-form">
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Title *</label>
-                  <input name="title" value={form.title} onChange={handleChange} required />
+      {/* Bootstrap modal for add/edit book */}
+      <div className="modal fade" id="bookFormModal" tabIndex="-1" aria-labelledby="bookFormModalLabel" aria-hidden="true" ref={modalRef}>
+        <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="bookFormModalLabel">{editing ? 'Edit Book' : 'Add New Book'}</h5>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div className="modal-body">
+              <form id="bookForm" onSubmit={handleSubmit} className="book-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Title *</label>
+                    <input name="title" value={form.title} onChange={handleChange} required />
+                  </div>
+                  <div className="form-group">
+                    <label>Author *</label>
+                    <input name="author" value={form.author} onChange={handleChange} required />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>ISBN *</label>
+                    <input name="isbn" value={form.isbn} onChange={handleChange} required disabled={!!editing} />
+                  </div>
+                  <div className="form-group">
+                    <label>Year</label>
+                    <input name="year" type="number" value={form.year} onChange={handleChange} min="1000" max="2100" />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Genre *</label>
+                    <select name="genre" value={form.genre} onChange={handleChange} required>
+                      <option>Fiction</option>
+                      <option>Non-Fiction</option>
+                      <option>Science</option>
+                      <option>History</option>
+                      <option>Biography</option>
+                      <option>Technology</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Resource Type *</label>
+                    <select name="type" value={form.type} onChange={handleChange} required>
+                      <option>Book</option>
+                      <option>Journal</option>
+                      <option>Manual</option>
+                      <option>Magazine</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Category</label>
+                    <input name="category" value={form.category} onChange={handleChange} placeholder="e.g. Classic, Science" />
+                  </div>
+                  <div className="form-group">
+                    <label>Number of Copies *</label>
+                    <input name="copies" type="number" min="1" value={form.copies} onChange={handleChange} required />
+                  </div>
                 </div>
                 <div className="form-group">
-                  <label>Author *</label>
-                  <input name="author" value={form.author} onChange={handleChange} required />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>ISBN *</label>
-                  <input name="isbn" value={form.isbn} onChange={handleChange} required disabled={!!editing} />
+                  <label>Description</label>
+                  <textarea name="description" value={form.description} onChange={handleChange} rows={3} />
                 </div>
                 <div className="form-group">
-                  <label>Year</label>
-                  <input name="year" type="number" value={form.year} onChange={handleChange} min="1000" max="2100" />
+                  <label>PDF File (optional, max 5 MB)</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handlePdfChange}
+                    className="pdf-input"
+                  />
+                  {pdfError && <span className="pdf-error">{pdfError}</span>}
+                  {editing && editingBook?.pdfDataUrl && !pdfFile && (
+                    <span className="pdf-hint">✅ A PDF is already attached. Upload a new file to replace it.</span>
+                  )}
                 </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Genre *</label>
-                  <select name="genre" value={form.genre} onChange={handleChange} required>
-                    <option>Fiction</option>
-                    <option>Non-Fiction</option>
-                    <option>Science</option>
-                    <option>History</option>
-                    <option>Biography</option>
-                    <option>Technology</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Resource Type *</label>
-                  <select name="type" value={form.type} onChange={handleChange} required>
-                    <option>Book</option>
-                    <option>Journal</option>
-                    <option>Manual</option>
-                    <option>Magazine</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Category</label>
-                  <input name="category" value={form.category} onChange={handleChange} placeholder="e.g. Classic, Science" />
-                </div>
-                <div className="form-group">
-                  <label>Number of Copies *</label>
-                  <input name="copies" type="number" min="1" value={form.copies} onChange={handleChange} required />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Description</label>
-                <textarea name="description" value={form.description} onChange={handleChange} rows={3} />
-              </div>
-              <div className="form-group">
-                <label>PDF File (optional, max 5 MB)</label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handlePdfChange}
-                  className="pdf-input"
-                />
-                {pdfError && <span className="pdf-error">{pdfError}</span>}
-                {editing && editingBook?.pdfDataUrl && !pdfFile && (
-                  <span className="pdf-hint">✅ A PDF is already attached. Upload a new file to replace it.</span>
-                )}
-              </div>
-              <div className="form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">{editing ? 'Update Book' : 'Add Book'}</button>
-              </div>
-            </form>
+              </form>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" form="bookForm" className="btn btn-primary">{editing ? 'Update Book' : 'Add Book'}</button>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       <div className="search-bar-row">
         <input
