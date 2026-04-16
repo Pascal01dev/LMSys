@@ -26,6 +26,12 @@ function StarRating({ rating }) {
   );
 }
 
+function getReadOnlyPdfUrl(url) {
+  if (!url) return url;
+  const separator = url.includes('#') ? '&' : '#';
+  return `${url}${separator}toolbar=0&navpanes=0&scrollbar=1`;
+}
+
 export default function BooksPage() {
   const { user } = useAuth();
   const [books, setBooks] = useState(() => getBooks());
@@ -209,7 +215,7 @@ export default function BooksPage() {
             <div className="modal-body p-0" style={{ minHeight: '70vh' }}>
               {pdfViewer && (
                 <embed
-                  src={pdfViewer.url}
+                  src={getReadOnlyPdfUrl(pdfViewer.url)}
                   type="application/pdf"
                   className="pdf-embed"
                   title={pdfViewer.title}
@@ -398,4 +404,3 @@ export default function BooksPage() {
     </div>
   );
 }
-
