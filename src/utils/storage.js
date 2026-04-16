@@ -181,7 +181,11 @@ export function getUserById(id) {
 
 // Books
 export function getBooks() {
-  return JSON.parse(localStorage.getItem(KEYS.BOOKS) || '[]');
+  const books = JSON.parse(localStorage.getItem(KEYS.BOOKS) || '[]');
+  return books.map((book) => ({
+    ...book,
+    pdfAccess: book.pdfAccess === 'downloadable' ? 'downloadable' : 'read_only',
+  }));
 }
 
 export function saveBooks(books) {

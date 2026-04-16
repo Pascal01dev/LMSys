@@ -67,6 +67,7 @@ export const booksApi = {
       available: Number(book.copies),
       reviews: [],
       pdfDataUrl: book.pdfDataUrl || null,
+      pdfAccess: book.pdfAccess === 'downloadable' ? 'downloadable' : 'read_only',
       addedAt: new Date().toISOString(),
     };
     saveBooks([...all, newBook]);
@@ -85,6 +86,9 @@ export const booksApi = {
         year: Number(patch.year),
         available: Math.max(0, b.available + diff),
         pdfDataUrl: patch.pdfDataUrl !== undefined ? patch.pdfDataUrl : b.pdfDataUrl,
+        pdfAccess: patch.pdfAccess !== undefined
+          ? (patch.pdfAccess === 'downloadable' ? 'downloadable' : 'read_only')
+          : (b.pdfAccess === 'downloadable' ? 'downloadable' : 'read_only'),
       };
     });
     saveBooks(updated);

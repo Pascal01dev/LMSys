@@ -253,6 +253,24 @@
   display: block;
 }
 
+/* A4-focused PDF modal layout */
+.modal-dialog.modal-a4 {
+  max-width: min(94vw, 850px);
+}
+
+.modal-dialog.modal-a4 .modal-content {
+  height: min(94vh, 1180px);
+}
+
+.modal-dialog.modal-a4 .modal-body {
+  background: #eef1f7;
+}
+
+.modal-dialog.modal-a4 .pdf-embed {
+  height: 100%;
+  min-height: min(80vh, 1120px);
+}
+
 /* Read PDF button */
 .btn-read-pdf {
   background: #e0f2fe;
@@ -268,6 +286,22 @@
 
 .btn-read-pdf:hover {
   background: #bae6fd;
+}
+
+.btn-download-pdf {
+  background: #ecfccb;
+  color: #3f6212;
+  border: 1px solid #bef264;
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.btn-download-pdf:hover {
+  background: #d9f99d;
 }
 
 /* Hold buttons */

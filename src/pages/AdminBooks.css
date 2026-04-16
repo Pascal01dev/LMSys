@@ -18,8 +18,8 @@
   margin: 0;
 }
 
-/* Modal */
-.modal-overlay {
+/* Legacy custom modal styles (kept namespaced to avoid overriding Bootstrap .modal) */
+.legacy-modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
@@ -30,7 +30,7 @@
   padding: 1rem;
 }
 
-.modal {
+.legacy-modal {
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
@@ -41,7 +41,7 @@
   overflow-y: auto;
 }
 
-.modal h2 {
+.legacy-modal h2 {
   font-size: 1.4rem;
   color: #1a237e;
   margin: 0 0 1.5rem;

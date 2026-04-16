@@ -25,3 +25,13 @@ h1, h2, h3, h4 {
 p {
   margin: 0;
 }
+
+/* Keep Bootstrap dialogs centered consistently across pages */
+.modal-dialog {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.modal-dialog.modal-dialog-centered {
+  min-height: calc(100dvh - 2rem);
+}

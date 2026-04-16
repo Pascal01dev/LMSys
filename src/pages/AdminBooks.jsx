@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
+import { Modal } from 'bootstrap';
 import Swal from 'sweetalert2';
 import { booksApi } from '../utils/api';
 import { getBooks } from '../utils/storage';
 import './AdminBooks.css';
 
 const EMPTY_FORM = {
-  title: '', author: '', isbn: '', genre: 'Fiction', category: '', type: 'Book', year: '', copies: 1, description: '',
+  title: '', author: '', isbn: '', genre: 'Fiction', category: '', type: 'Book', year: '', copies: 1, description: '', pdfAccess: 'read_only',
 };
 
 const MAX_PDF_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -32,11 +33,11 @@ export default function AdminBooks() {
   // Show / hide Bootstrap modal imperatively
   useEffect(() => {
     if (!modalRef.current) return;
-    const bsModal = window.bootstrap?.Modal.getOrCreateInstance(modalRef.current);
+    const bsModal = Modal.getOrCreateInstance(modalRef.current);
     if (showForm) {
-      bsModal?.show();
+      bsModal.show();
     } else {
-      bsModal?.hide();
+      bsModal.hide();
     }
   }, [showForm]);
 
@@ -69,6 +70,7 @@ export default function AdminBooks() {
       year: book.year,
       copies: book.copies,
       description: book.description,
+      pdfAccess: book.pdfAccess === 'downloadable' ? 'downloadable' : 'read_only',
     });
     setPdfFile(null);
     setPdfError('');
@@ -247,6 +249,13 @@ export default function AdminBooks() {
                     <span className="pdf-hint">✅ A PDF is already attached. Upload a new file to replace it.</span>
                   )}
                 </div>
+                <div className="form-group">
+                  <label>PDF Access Mode</label>
+                  <select name="pdfAccess" value={form.pdfAccess} onChange={handleChange}>
+                    <option value="read_only">Read Online Only (No Download)</option>
+                    <option value="downloadable">Allow Download</option>
+                  </select>
+                </div>
               </form>
             </div>
             <div className="modal-footer">
@@ -306,7 +315,9 @@ export default function AdminBooks() {
                 </td>
                 <td>
                   {book.pdfDataUrl ? (
-                    <span className="badge badge-pdf">✅ PDF</span>
+                    <span className="badge badge-pdf">
+                      {book.pdfAccess === 'downloadable' ? '⬇️ Downloadable' : '👁️ Read Only'}
+                    </span>
                   ) : (
                     <span className="badge badge-no-pdf">—</span>
                   )}
