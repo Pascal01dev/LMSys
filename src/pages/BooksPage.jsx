@@ -29,11 +29,9 @@ function StarRating({ rating }) {
 function getReadOnlyPdfUrl(url) {
   if (!url) return url;
   const [baseUrl, hashFragment = ''] = url.split('#');
-  const existingHash = hashFragment.replace(/^#/, '').trim();
-  const readOnlyControls = 'toolbar=0&navpane=0&navpanes=0&scrollbar=1';
-  return existingHash
-    ? `${baseUrl}#${readOnlyControls}&${existingHash}`
-    : `${baseUrl}#${readOnlyControls}`;
+  const existingHash = hashFragment.trim();
+  const readOnlyParams = 'toolbar=0&navpane=0&navpanes=0&scrollbar=1';
+  return `${baseUrl}#${readOnlyParams}${existingHash ? `&${existingHash}` : ''}`;
 }
 
 export default function BooksPage() {
