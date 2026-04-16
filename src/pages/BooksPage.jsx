@@ -31,7 +31,11 @@ function getReadOnlyPdfUrl(url) {
   const [baseUrl, hashFragment = ''] = url.split('#');
   const existingHash = hashFragment.trim();
   const readOnlyParams = 'toolbar=0&navpanes=0&scrollbar=1';
-  return `${baseUrl}#${readOnlyParams}${existingHash ? `&${existingHash}` : ''}`;
+  if (!existingHash) return `${baseUrl}#${readOnlyParams}`;
+  const existingPdfParams = existingHash.includes('=') || existingHash.includes('&')
+    ? existingHash
+    : `nameddest=${encodeURIComponent(existingHash)}`;
+  return `${baseUrl}#${readOnlyParams}&${existingPdfParams}`;
 }
 
 export default function BooksPage() {
