@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Modal } from 'bootstrap';
 import Swal from 'sweetalert2';
 import { usersApi } from '../utils/api';
 import { getUsers } from '../utils/storage';
@@ -31,11 +32,11 @@ export default function AdminUsers() {
   // Show / hide Bootstrap modal imperatively
   useEffect(() => {
     if (!modalRef.current) return;
-    const bsModal = window.bootstrap?.Modal.getOrCreateInstance(modalRef.current);
+    const bsModal = Modal.getOrCreateInstance(modalRef.current);
     if (showForm) {
-      bsModal?.show();
+      bsModal.show();
     } else {
-      bsModal?.hide();
+      bsModal.hide();
     }
   }, [showForm]);
 
@@ -46,6 +47,15 @@ export default function AdminUsers() {
     const handler = () => setShowForm(false);
     el.addEventListener('hidden.bs.modal', handler);
     return () => el.removeEventListener('hidden.bs.modal', handler);
+  }, []);
+
+  // Guard against stale backdrops blocking page clicks after route changes.
+  useEffect(() => {
+    return () => {
+      document.querySelectorAll('.modal-backdrop').forEach((node) => node.remove());
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('padding-right');
+    };
   }, []);
 
   function openAdd() {
@@ -154,57 +164,55 @@ export default function AdminUsers() {
 
       {message && <div className={`alert alert-${message.type}`}>{message.text}</div>}
 
-      {showForm && (
-        <div className="modal fade" id="userFormModal" tabIndex="-1" aria-labelledby="userFormModalLabel" aria-hidden="true" ref={modalRef}>
-          <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title" id="userFormModalLabel">{editingId ? 'Edit Student Record' : 'Create Student Profile'}</h5>
-                <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div className="modal-body">
-                <form id="userForm" onSubmit={handleSubmit} className="book-form">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Full Name *</label>
-                      <input name="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-                    </div>
-                    <div className="form-group">
-                      <label>Email *</label>
-                      <input type="email" name="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-                    </div>
-                  </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Student ID</label>
-                      <input name="studentId" value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} placeholder="e.g. STU-2024-001" />
-                    </div>
-                    <div className="form-group">
-                      <label>Phone</label>
-                      <input name="phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 555 000 0000" />
-                    </div>
+      <div className="modal fade" id="userFormModal" tabIndex="-1" aria-labelledby="userFormModalLabel" aria-hidden="true" ref={modalRef}>
+        <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="userFormModalLabel">{editingId ? 'Edit Student Record' : 'Create Student Profile'}</h5>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div className="modal-body">
+              <form id="userForm" onSubmit={handleSubmit} className="book-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Full Name *</label>
+                    <input name="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
                   </div>
                   <div className="form-group">
-                    <label>{editingId ? 'New Password (leave blank to keep)' : 'Password *'}</label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={form.password}
-                      onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      placeholder={editingId ? 'Leave blank to keep current' : 'Min. 6 characters'}
-                      required={!editingId}
-                    />
+                    <label>Email *</label>
+                    <input type="email" name="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
                   </div>
-                </form>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" form="userForm" className="btn btn-primary">{editingId ? 'Update Record' : 'Create Profile'}</button>
-              </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Student ID</label>
+                    <input name="studentId" value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} placeholder="e.g. STU-2024-001" />
+                  </div>
+                  <div className="form-group">
+                    <label>Phone</label>
+                    <input name="phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 555 000 0000" />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>{editingId ? 'New Password (leave blank to keep)' : 'Password *'}</label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    placeholder={editingId ? 'Leave blank to keep current' : 'Min. 6 characters'}
+                    required={!editingId}
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" form="userForm" className="btn btn-primary">{editingId ? 'Update Record' : 'Create Profile'}</button>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       <div className="tabs-row">
         {[

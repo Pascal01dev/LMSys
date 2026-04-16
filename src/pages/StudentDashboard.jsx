@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   getBooks, getBorrows, getNotifications, saveNotifications, getHolds,
 } from '../utils/storage';
+import StudentLibraryPanel from '../components/StudentLibraryPanel';
 import './StudentDashboard.css';
 
 function loadDashboard(userId) {
@@ -60,6 +61,10 @@ function loadDashboard(userId) {
 export default function StudentDashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(() => loadDashboard(user.id));
+
+  function refreshDashboard() {
+    setData(loadDashboard(user.id));
+  }
 
   function dismissNotification(id) {
     const all = getNotifications().map((n) => n.id === id ? { ...n, read: true } : n);
@@ -133,67 +138,11 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* New arrivals */}
-      {data.newArrivals.length > 0 && (
-        <div className="section">
-          <div className="section-header">
-            <h2>
-              🆕 New Arrivals
-              {data.favoriteGenres.length > 0 && (
-                <span className="section-sub"> — {data.favoriteGenres.join(', ')}</span>
-              )}
-            </h2>
-            <Link to="/books" className="view-all">Browse All →</Link>
-          </div>
-          <div className="books-grid">
-            {data.newArrivals.map((book) => (
-              <div key={book.id} className="book-card">
-                <div className="book-cover">
-                  <span className="book-cover-icon">📖</span>
-                </div>
-                <div className="book-info">
-                  <h3 className="book-title">{book.title}</h3>
-                  <p className="book-author">by {book.author}</p>
-                  <p className="book-genre">{book.genre} • {book.type || 'Book'}</p>
-                  <div className="book-footer">
-                    <span className={`badge ${book.available > 0 ? 'badge-available' : 'badge-unavailable'}`}>
-                      {book.available > 0 ? `${book.available} available` : 'Not available'}
-                    </span>
-                    <Link to="/books" className="btn-sm">View</Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="section">
-        <div className="section-header">
-          <h2>Recently Added</h2>
-          <Link to="/books" className="view-all">Browse All →</Link>
-        </div>
-        <div className="books-grid">
-          {data.recent.map((book) => (
-            <div key={book.id} className="book-card">
-              <div className="book-cover">
-                <span className="book-cover-icon">📖</span>
-              </div>
-              <div className="book-info">
-                <h3 className="book-title">{book.title}</h3>
-                <p className="book-author">by {book.author}</p>
-                <p className="book-genre">{book.genre} • {book.category}</p>
-                <div className="book-footer">
-                  <span className={`badge ${book.available > 0 ? 'badge-available' : 'badge-unavailable'}`}>
-                    {book.available > 0 ? `${book.available} available` : 'Not available'}
-                  </span>
-                  <Link to="/books" className="btn-sm">View</Link>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <StudentLibraryPanel
+        userId={user.id}
+        userName={user.name}
+        onActivityChange={refreshDashboard}
+      />
 
       <div className="quick-links">
         <Link to="/books" className="quick-link-card">

@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { initStorage } from './utils/storage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -22,6 +23,17 @@ initStorage();
 
 function AppRoutes() {
   const { user } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Remove orphaned Bootstrap backdrops that may block clicks after route changes.
+    const hasOpenModal = document.querySelector('.modal.show');
+    if (!hasOpenModal) {
+      document.querySelectorAll('.modal-backdrop').forEach((node) => node.remove());
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('padding-right');
+    }
+  }, [location.pathname]);
 
   if (user) {
     return (
