@@ -14,9 +14,8 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <div className="navbar-brand">
-        <span className="brand-icon">📚</span>
         <Link to={user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/'}>
-          LibraryMS
+           <span className="brand-icon"><img src="src/assets/Logo.png" alt="" /></span>
         </Link>
       </div>
 

@@ -26,8 +26,8 @@
   text-decoration: none;
 }
 
-.brand-icon {
-  font-size: 1.6rem;
+.brand-icon img{
+  width:200px;
 }
 
 .navbar-links {
